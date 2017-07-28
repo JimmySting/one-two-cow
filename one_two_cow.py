@@ -1,3 +1,4 @@
+import pickle
 from random import shuffle
 
 class Game():
@@ -7,7 +8,7 @@ class Game():
 		self.game_in_progress = False
 
 		animals = ["dog", "cat", "cow", "sheep", "elephant"]
-		animal_hints = {"dog'":"woof", "cat":"meow", "cow":"moo", "sheep":"baa", "elephant":"The one with the trunk..."}
+		animal_hints = {"dog":"woof", "cat":"meow", "cow":"moo", "sheep":"baa", "elephant":"The one with the trunk..."}
 
 		states = ["rhode island", "new york", "california", "texas", "alaska"]
 		state_hints = {"rhode island": "providence", "new york":"albany", "california":"sacramento", "texas":"austin", "alaska":"juneau"}
@@ -30,7 +31,6 @@ class Game():
 		self.game_sequence = range(1, self.max_count+1)
 
 	def end_game(self):
-		print("Thanks for playing!")
 		self.game_in_progress = False
 
 	def start_round(self):
@@ -39,25 +39,19 @@ class Game():
 			if not self.strike_in_progress:
 				self.round_count += 1
 
-			print("\n\n\n\n\n\n\n\n\n\n\n\n\nWelcome to round "+str(self.round_count))
-			print("The goal is to count to "+str(self.max_count))
-
 			# swap number with animal/state fort this round
 			swap_value = self.get_swap_value()
 			number_to_swap = self.get_number_to_swap()
-			print("The number, "+str(number_to_swap)+", has been swapped with "+swap_value+"!")
 			self.game_sequence[number_to_swap-1] = swap_value
-			
-			strikes_at_start_of_round = self.strikes
-			while self.strikes == strikes_at_start_of_round and self.guess_count <= self.max_count:
-				correct_answer = self.get_correct_answer()
-				guess = self.get_guess()
-				self.evaluate_guess(guess, correct_answer)
 
-			self.end_round()
+			resp = "Welcome to round {}.".format(self.round_count)
+			resp = resp + " The goal is to count to {}.".format(self.max_count)
+			resp = resp + " The number, {}, has been swapped with {}!".format(number_to_swap, swap_value)
+			resp = resp + " What is your first guess?"
+			return resp
 
 		else:
-			print("Game is not in progress! Please start a game before starting round.")
+			return "Game is not in progress! Please start a game before starting round."
 
 	def get_correct_answer(self):
 		return str(self.game_sequence[self.guess_count-1])
@@ -65,9 +59,10 @@ class Game():
 	def get_guess(self):
 		return str(raw_input("Enter an number: ")).lower()
 
-	def evaluate_guess(self, guess, correct_answer):
+	def evaluate_guess(self, guess):
 		guess_evaluated = False
 
+		correct_answer = self.get_correct_answer()
 		while not guess_evaluated:
 			if guess == "hint" and self.hints != 0:
 				self.use_hint(correct_answer)
@@ -111,26 +106,35 @@ class Game():
 	def use_hint(self, correct_answer):
 		self.hints -= 1
 		try:
-			number = int(correct_answer)
-			print("It's the number after "+str(number-1)+"...")
+			number = int(correct_answer) - 1
+			return "It's the number after {}.".format(number)
 		except:
-			print(self.hint_values[self.game_type][correct_answer])
+			return "{}!".format(self.hint_values[self.game_type][correct_answer])
 
 	def correct_guess(self):
 		self.guess_count += 1
 		self.strike_in_progress = False
-		print("That's correct!")
 
-	def incorrect_guess(self, correct_answer):
+	def incorrect_guess(self):
 		self.strikes -= 1
 		self.strike_in_progress = True
-		print("Oh no! That is not correct! The correct answer was: "+str(correct_answer))
 
 	def get_swap_value(self):
 		return self.swap[self.round_count-1][1]
 
 	def get_number_to_swap(self):
 		return self.swap[self.round_count-1][0]
+
+	@classmethod
+	def save_game(cls, game, filename):
+		with open(filename, 'wb') as output:
+		    pickle.dump(game, output, pickle.HIGHEST_PROTOCOL)
+
+	@classmethod
+	def load_game(cls, filename):
+		with open(filename, 'rb') as input:
+			return pickle.load(input)
+
 
 
 
