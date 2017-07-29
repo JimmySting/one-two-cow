@@ -19,18 +19,23 @@ def load_game():
 	return cPickle.loads(str(context_manager.get_param("game_in_progress", "game")))
 
 def get_hint_text(hint_count):
-	return "hints" if hint_count > 1 else "hint"
+	return "hint" if hint_count == 1 else "hints"
 
 def get_strike_text(strike_count):
-	return "strikes" if strike_count > 1 else "strike"
+	return "strike" if strike_count == 1 else "strikes"
 
 def get_round_over_text(hint_count, strike_count):
 	return "The round is over! You have {} {} and {} {} left! Would you like to start a new round?".format(
 		   hint_count, get_hint_text(hint_count), strike_count, get_strike_text(strike_count))
 
+words_to_number = {"zero":0, "one":1, "two":2, "too":2, "to":2, "three":3, "four":4, "for":4, "five":5, "six":6, "seven":7, "eight":8, "ate":8, "nine":9, "ten":10}
+def convert_guess(guess):
+	# Converts a potential number guess to an integer - takes care of homonyms since any word can pe provided with guess
+	return str(words_to_number[guess]) if guess in words_to_number.keys() else guess
+
 @assist.action('welcome-greeting')
 def welcome_greeting():
-    speech_options = ["Welcome to 'One, Two, Cow!  The game where the number after 16 happens to be...llama! Would you like to hear the rules or start a game?",
+    speech_options = ["Welcome to 'One, Two, Cow!  The game where the number after 9 could be...elephant! Would you like to hear the rules or start a game?",
                       "Welcome to 'One, Two, Cow!  The counting game where numbers morph into animals! Would you like to hear the rules or start a game?",
                       "Welcome to 'One, Two, Cow!  A counting game that swaps out numbers with your favorite animals! Would you like to hear the rules or start a game?"]
 
@@ -76,7 +81,7 @@ def evaluate_guess(user_guess, game):
 
 	game = load_game()
 	correct_answer = game.get_correct_answer()
-	if game.is_guess_correct(user_guess, correct_answer):	
+	if game.is_guess_correct(convert_guess(user_guess), correct_answer):	
 		return correct_guess(game)
 	else:
 		return incorrect_guess(game, correct_answer)
@@ -99,7 +104,7 @@ def incorrect_guess(game, correct_answer):
 
 def correct_guess(game):
 
-	speech_options = ["That's correct! What is your next guess?",
+	speech_options = ["That's correct! What comes next?",
 	                  "Right answer! What is your next guess?",
 	                  "Nice job! Now what comes next?"]
 
@@ -133,7 +138,8 @@ def give_hint(game):
 
 	game = load_game()
 	if game.hints != 0:
-		speech = "Okay, here's your hint. {} Now, what is your guess?".format(game.use_hint(game.get_correct_answer()))
+		(hint_text, hint_link) = game.use_hint(game.get_correct_answer())
+		speech = "<speak>Okay, here's your hint. <audio src='{}'>{}</audio> Now, what is your next guess?</speak>".format(hint_link, hint_text)
 	else:
 		speech = "Gosh! You are out of hints! Guess again!"
 	
@@ -147,9 +153,9 @@ def game_over(game):
 	game = load_game()
 	context_manager.get("game_in_progress").lifespan = 0
 	game.end_game()
-	speech_options = ["Oh meow! Looks like you ran out of strikes!",
+	speech_options = ["Oh no! You are turtle-ly out of strikes!",
 	                  "Oh, the hue-manatee! You're out of strikes!"]
-	speech = choic(speech_options) + " Would you like to start a new game or hear about the rules?"
+	speech = choice(speech_options) + " Would you like to start a new game or hear about the rules?"
 	context_manager.add("choose_game_or_rules", lifespan=3)
 	return ask(speech)
 
@@ -168,11 +174,9 @@ def won_game(game):
 def end_game(game):
 	"""Ends current game of One, Two, Cow."""
 	
-	#game = load_game()
-	#game.end_game()
-	speech = "Oh meow! Ok let's end the game right here. Would you like to start a new game or hear about the rules?"
-	context_manager.add("choose_game_or_rules", lifespan=3)
-	return ask(speech)
+	speech = "Oh meow! Ok let's end the game right here. Thanks for playing One, Two Cow!"
+	#context_manager.add("choose_game_or_rules", lifespan=3)
+	return tell(speech)
 
 if __name__ == '__main__':
     app.run(debug=True)
