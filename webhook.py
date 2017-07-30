@@ -13,10 +13,24 @@ app = Flask(__name__)
 assist = Assistant(app, '/')
 
 def save_game(game):
-	context_manager.set("game_in_progress", "game", cPickle.dumps(game))
+	#context_manager.set("game_in_progress", "game", cPickle.dumps(game))
+	game_content = {"game_type":game.game_type, "round_count":game.round_count, "game_sequence":game.game_sequence, "guess_count":game.guess_count, "hints":game.hints, \
+	                "strikes":game.strikes, "strike_in_progress":game.strike_in_progress, "swap":game.swap}
+	context_manager.set("game_in_progress", "game_content", cPickle.dumps(game_content))
 
 def load_game():
-	return cPickle.loads(str(context_manager.get_param("game_in_progress", "game")))
+	game = Game()
+	game.game_in_progress = True
+	game_content = cPickle.loads(str(context_manager.get_param("game_in_progress", "game_content")))
+	game.game_type = game_content["game_type"]
+	game.round_count = int(game_content["round_count"])
+	game.game_sequence = game_content["game_sequence"]
+	game.guess_count = int(game_content["guess_count"])
+	game.hints = int(game_content["hints"])
+	game.strikes = int(game_content["strikes"])
+	game.strike_in_progress = game_content["strike_in_progress"]
+	game.swap = game_content["swap"]
+	return game
 
 def get_hint_text(hint_count):
 	return "hint" if hint_count == 1 else "hints"
@@ -35,9 +49,9 @@ def convert_guess(guess):
 
 @assist.action('welcome-greeting')
 def welcome_greeting():
-    speech_options = ["Welcome to 'One, Two, Cow!  The game where the number after 9 could be...elephant! Would you like to hear the rules or start a game?",
-                      "Welcome to 'One, Two, Cow!  The counting game where numbers morph into animals! Would you like to hear the rules or start a game?",
-                      "Welcome to 'One, Two, Cow!  A counting game that swaps out numbers with your favorite animals! Would you like to hear the rules or start a game?"]
+    speech_options = ["Welcome to 'One, Two, Cow'! The game where the number after 9 could be...elephant! Would you like to hear the rules or start a game?",
+                      "Welcome to 'One, Two, Cow'! The counting game where numbers morph into animals! Would you like to hear the rules or start a game?",
+                      "Welcome to 'One, Two, Cow'! A counting game that swaps out numbers with your favorite animals! Would you like to hear the rules or start a game?"]
 
     context_manager.add("choose_game_or_rules", lifespan=5)
 
@@ -49,7 +63,7 @@ def start_new_game():
 	"""Prepares a new game of One, Two, Cow for the user."""
 
 	game = Game()
-	game.start_game(3)
+	game.new_game(5)
 	context_manager.add("game_in_progress")
 	context_manager.add("start-game-followup", lifespan=3)
 	save_game(game)
@@ -70,7 +84,19 @@ def start_round(game):
 
 	game = load_game()
 	context_manager.add("guess", lifespan=1)
-	speech = game.start_round()
+	#speech = game.start_round()
+
+	# new stuff
+	game.guess_count = 1
+	if not game.strike_in_progress:
+		game.round_count += 1
+	(number_to_swap, swap_value) = game.swap_number()
+
+	speech = "Welcome to round {}.".format(game.round_count)
+	speech = speech + " The goal is to count to {}.".format(len(game.game_sequence))
+	speech = speech + " The number, {}, has been swapped with {}!".format(number_to_swap, swap_value)
+	speech = speech + " What is your first guess?"
+
 	save_game(game)
 	return ask(speech)
 
@@ -89,7 +115,6 @@ def evaluate_guess(user_guess, game):
 def incorrect_guess(game, correct_answer):
 
 	speech_options_incorrect = ["Oh no! That is not correct! The correct answer was: {}.".format(correct_answer),
-	                            "Uh oh! That wasn't correct! The correct answer was: {}.".format(correct_answer),
 	                            "Sorry! That wasn't correct! The correct answer was: {}.".format(correct_answer)]
 
 	game.incorrect_guess()
@@ -108,10 +133,11 @@ def correct_guess(game):
 	                  "Right answer! What is your next guess?",
 	                  "Nice job! Now what comes next?"]
 
-	if game.round_count == game.max_count and game.guess_count == game.max_count and not game.strike_in_progress:
+	max_count = len(game.game_sequence)
+	if game.round_count == max_count and game.guess_count == max_count and not game.strike_in_progress:
 		save_game(game)
 		return event("won_game")
-	elif game.guess_count == game.max_count and not game.strike_in_progress:
+	elif game.guess_count == max_count and not game.strike_in_progress:
 		speech =  "Correct! " + get_round_over_text(game.hints, game.strikes)
 		context_manager.add("user_round_response", lifespan=5)
 		save_game(game)
@@ -174,9 +200,9 @@ def won_game(game):
 def end_game(game):
 	"""Ends current game of One, Two, Cow."""
 	
-	speech = "Oh meow! Ok let's end the game right here. Thanks for playing One, Two Cow!"
-	#context_manager.add("choose_game_or_rules", lifespan=3)
-	return tell(speech)
+	speech_options = ["Ok, no problem! Thanks for playing One, Two Cow!",
+	                  "Sure thing! Thanks for playing One, Two Cow!"]
+	return tell(choice(speech_options))
 
 if __name__ == '__main__':
     app.run(debug=True)
